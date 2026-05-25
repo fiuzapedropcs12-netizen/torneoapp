@@ -1,0 +1,35 @@
+ÍNDICE DE CONVERSACIONES CON IA — Entrega 1
+TorneoApp · DAM 2026 · UTN FRLP
+Integrantes: Pedro Fiuza · Maximo Carpignano · Jesus Vergara
+============================================================
+
+1. conversacion_claude_code_e1.txt / ee0e810a-2bbd-4b70-8af8-9b036a892e8d.jsonl
+   Herramienta: Claude Code (extensión VSC) — claude-sonnet-4-6
+   Fecha: 23/05/2026
+   Temas consultados:
+   - Generación del plan de implementación completo (17 archivos)
+   - Configuración del proyecto: Expo Router v4, TypeScript, react-native-paper
+   - Implementación del algoritmo round-robin para generación de fixture
+   - Implementación del cálculo de tabla de posiciones (pts, dif, goles)
+   - Creación del Context API + useReducer (TorneoContext)
+   - Creación de componentes reutilizables: TablaRow, PartidoCard, LoadingScreen, EmptyScreen, ErrorScreen
+   - Implementación de las 3 pantallas: Tabla, Fixture, Modal Cargar Resultado
+   - Persistencia con AsyncStorage
+   - Downgrade de Expo SDK 56 a SDK 54 por incompatibilidad con Expo Go iOS
+   - Fix de errores de compilación TypeScript
+
+2. conversacion_claude_ai_e1.pdf
+   Herramienta: Claude (claude.ai) — claude-sonnet-4-6
+   Fecha: 23/05/2026
+   Temas consultados:
+   - Definición del alcance del proyecto y criterios de escalabilidad
+   - Redacción de Requerimientos Funcionales (RF-01 a RF-12)
+   - Redacción de Requerimientos No Funcionales (RNF-01 a RNF-06)
+   - Redacción de 5 User Stories con criterios de aceptación (Given/When/Then)
+   - Generación del documento alcance_e1.pdf
+   - Decisión tecnológica: React Native + Expo vs Kotlin vs CLI
+   - Definición de estructura de navegación y pantallas
+   - Generación del documento doc_tecnica_e1.pdf
+   - Generación del prompt para diseño en Figma AI
+   - Generación del prompt para Claude Code
+   - Decisiones de arquitectura: Context API para E1, Go + PostgreSQL para E2/E3
