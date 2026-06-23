@@ -1,7 +1,7 @@
 import { Stack } from 'expo-router'
 import { MD3LightTheme, PaperProvider } from 'react-native-paper'
 import { useFonts, Inter_400Regular, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter'
-import { TorneoProvider } from '@/context/TorneoContext'
+import { AppProvider } from '@/context/AppContext'
 import { colors } from '@/theme/colors'
 
 const paperTheme = {
@@ -28,19 +28,52 @@ export default function RootLayout() {
 
   return (
     <PaperProvider theme={paperTheme}>
-      <TorneoProvider>
+      <AppProvider>
         <Stack>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          {/* Pantalla principal: lista de torneos */}
           <Stack.Screen
-            name="fixture/[id]"
+            name="index"
             options={{
+              title: 'TorneoApp',
+              headerStyle: { backgroundColor: colors.primary },
+              headerTintColor: '#FFFFFF',
+              headerTitleStyle: { fontWeight: '700', fontSize: 18 },
+            }}
+          />
+
+          {/* Crear / editar torneo */}
+          <Stack.Screen
+            name="torneo/crear"
+            options={{
+              title: 'Nuevo torneo',
               presentation: 'modal',
-              headerShown: false,
-              animation: 'slide_from_bottom',
+              headerStyle: { backgroundColor: colors.primary },
+              headerTintColor: '#FFFFFF',
+              headerTitleStyle: { fontWeight: '700' },
+            }}
+          />
+
+          {/* Detalle de torneo (sub-stack: tabla, fixture, equipos) */}
+          <Stack.Screen
+            name="torneo/[torneoId]/index"
+            options={{
+              headerStyle: { backgroundColor: colors.primary },
+              headerTintColor: '#FFFFFF',
+              headerTitleStyle: { fontWeight: '700' },
+            }}
+          />
+
+          {/* Plantel de un equipo */}
+          <Stack.Screen
+            name="torneo/[torneoId]/equipo/[equipoId]"
+            options={{
+              headerStyle: { backgroundColor: colors.primary },
+              headerTintColor: '#FFFFFF',
+              headerTitleStyle: { fontWeight: '700' },
             }}
           />
         </Stack>
-      </TorneoProvider>
+      </AppProvider>
     </PaperProvider>
   )
 }
