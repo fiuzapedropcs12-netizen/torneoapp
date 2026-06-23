@@ -1,24 +1,18 @@
-import type { Equipo, FilaTabla, Partido } from '@/types/torneo'
+import type { EquipoRef, FilaTabla, Partido } from '@/types/torneo'
 
 /**
  * Calcula la tabla de posiciones a partir de los partidos jugados.
+ * Recibe EquipoRef[] en lugar de Equipo[] para no depender de los jugadores.
  * Incluye todos los equipos, incluso los que no jugaron aún (todos en cero).
  * Ordenada por: pts DESC → dif DESC → gf DESC.
  */
-export function calcularTabla(partidos: Partido[], equipos: Equipo[]): FilaTabla[] {
+export function calcularTabla(partidos: Partido[], equipos: EquipoRef[]): FilaTabla[] {
   // Inicializar todas las filas en cero
   const mapaFilas = new Map<string, FilaTabla>()
   for (const equipo of equipos) {
     mapaFilas.set(equipo.id, {
       equipo,
-      pj: 0,
-      pg: 0,
-      pe: 0,
-      pp: 0,
-      gf: 0,
-      gc: 0,
-      dif: 0,
-      pts: 0,
+      pj: 0, pg: 0, pe: 0, pp: 0, gf: 0, gc: 0, dif: 0, pts: 0,
     })
   }
 
@@ -57,17 +51,11 @@ export function calcularTabla(partidos: Partido[], equipos: Equipo[]): FilaTabla
     }
   }
 
-  // Calcular diferencia de goles y ordenar
-  const tabla = Array.from(mapaFilas.values()).map((fila) => ({
-    ...fila,
-    dif: fila.gf - fila.gc,
-  }))
-
-  tabla.sort((a, b) => {
-    if (b.pts !== a.pts) return b.pts - a.pts
-    if (b.dif !== a.dif) return b.dif - a.dif
-    return b.gf - a.gf
-  })
-
-  return tabla
+  return Array.from(mapaFilas.values())
+    .map((fila) => ({ ...fila, dif: fila.gf - fila.gc }))
+    .sort((a, b) => {
+      if (b.pts !== a.pts) return b.pts - a.pts
+      if (b.dif !== a.dif) return b.dif - a.dif
+      return b.gf - a.gf
+    })
 }
