@@ -61,36 +61,10 @@ export type Torneo = {
   tabla: FilaTabla[]
 }
 
-// ── Estado global de la app ────────────────────────────────────────────────────
+// ── Estado de conexión (usado por hooks/useConexion.ts) ────────────────────────
 
 export type ConexionEstado = 'en-vivo' | 'reconectando' | 'sin-conexion'
 
-export type AppState = {
-  torneos: Torneo[]
-  loading: boolean
-  error: string | null
-  conexion: ConexionEstado
-}
-
-// ── Acciones del reducer ───────────────────────────────────────────────────────
-
-export type AppAction =
-  // Estado general
-  | { type: 'SET_LOADING'; payload: boolean }
-  | { type: 'SET_ERROR'; payload: string | null }
-  | { type: 'SET_TORNEOS'; payload: Torneo[] }
-  | { type: 'SET_CONEXION'; payload: ConexionEstado }
-  // Torneos
-  | { type: 'CREAR_TORNEO'; payload: { nombre: string; deporte: Deporte } }
-  | { type: 'EDITAR_TORNEO'; payload: { torneoId: string; nombre: string; deporte: Deporte } }
-  | { type: 'ELIMINAR_TORNEO'; payload: string }
-  // Equipos
-  | { type: 'AGREGAR_EQUIPO'; payload: { torneoId: string; nombre: string } }
-  | { type: 'EDITAR_EQUIPO'; payload: { torneoId: string; equipoId: string; nombre: string } }
-  | { type: 'ELIMINAR_EQUIPO'; payload: { torneoId: string; equipoId: string } }
-  // Jugadores
-  | { type: 'AGREGAR_JUGADOR'; payload: { torneoId: string; equipoId: string; nombre: string } }
-  | { type: 'ELIMINAR_JUGADOR'; payload: { torneoId: string; equipoId: string; jugadorId: string } }
-  // Fixture y resultados
-  | { type: 'GENERAR_FIXTURE'; payload: { torneoId: string } }
-  | { type: 'CARGAR_RESULTADO'; payload: { torneoId: string; partidoId: string; golesLocal: number; golesVisitante: number } }
+// Nota (E3): AppState/AppAction del reducer local de E1/E2 fueron reemplazados
+// por hooks/useTorneoApi.ts, que habla directo con el backend. Ver TorneoAction
+// y EquipoAction ahí.

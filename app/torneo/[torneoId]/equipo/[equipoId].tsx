@@ -13,26 +13,34 @@ import {
   View,
 } from 'react-native'
 import { router, useLocalSearchParams, useNavigation } from 'expo-router'
-import { useTorneo } from '@/context/AppContext'
+import { useEquipo } from '@/hooks/useTorneoApi'
 import { getMaxJugadores, getMinJugadores } from '@/constants/deportes'
 import JugadorRow from '@/components/JugadorRow'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import FAB from '@/components/FAB'
 import EmptyState from '@/components/EmptyState'
+import LoadingScreen from '@/components/LoadingScreen'
+import ErrorScreen from '@/components/ErrorScreen'
 import { colors } from '@/theme/colors'
-import type { Jugador } from '@/types/torneo'
+import type { Deporte, Jugador } from '@/types/torneo'
 
 /**
  * Pantalla de plantel de un equipo.
  * Ruta: /torneo/[torneoId]/equipo/[equipoId]
+ * Params: torneoId, equipoId, deporte (viene de la pantalla anterior, para no
+ * pedir el torneo completo solo para saber el límite de jugadores)
  *
  * RF-04: Gestionar plantel — agregar y eliminar jugadores.
  * RN-04: No se pueden agregar más jugadores del máximo permitido por deporte.
  * RN-05: Se muestra aviso si el plantel tiene menos del mínimo requerido.
  */
 export default function EquipoJugadoresScreen() {
-  const { torneoId, equipoId } = useLocalSearchParams<{ torneoId: string; equipoId: string }>()
-  const { torneo, dispatch } = useTorneo(torneoId!)
+  const { equipoId, deporte } = useLocalSearchParams<{
+    torneoId: string
+    equipoId: string
+    deporte: string
+  }>()
+  const { equipo, cargando, error, dispatch } = useEquipo(equipoId!)
   const navigation = useNavigation()
 
   const [modalAgregar, setModalAgregar] = useState(false)
@@ -41,22 +49,24 @@ export default function EquipoJugadoresScreen() {
     visible: false, jugadorId: '',
   })
 
-  const equipo = torneo?.equipos.find((e) => e.id === equipoId)
-
   // Configurar header con nombre del equipo
   useLayoutEffect(() => {
     if (!equipo) return
     navigation.setOptions({ title: equipo.nombre })
   }, [equipo, navigation])
 
-  // Guards
-  if (!torneo || !equipo) {
+  if (cargando && !equipo) return <LoadingScreen type="fixture" />
+  if (error && !equipo) return <ErrorScreen message={error} />
+
+  // Guard: equipo eliminado o id inválido (ya terminó de cargar y no existe)
+  if (!equipo) {
     router.back()
     return null
   }
 
-  const maxJugadores = getMaxJugadores(torneo.deporte)
-  const minJugadores = getMinJugadores(torneo.deporte)
+  const deporteTipado = (deporte as Deporte) ?? 'Otro'
+  const maxJugadores = getMaxJugadores(deporteTipado)
+  const minJugadores = getMinJugadores(deporteTipado)
   const cantJugadores = equipo.jugadores.length
   const plantelCompleto = cantJugadores >= maxJugadores
   const plantelInsuficiente = cantJugadores < minJugadores
@@ -67,7 +77,7 @@ export default function EquipoJugadoresScreen() {
     if (plantelCompleto) {
       Alert.alert(
         'Plantel completo',
-        `El máximo para ${torneo!.deporte} es ${maxJugadores} jugadores (${getMinJugadores(torneo!.deporte)} titulares + ${maxJugadores - minJugadores} suplentes).`
+        `El máximo para ${deporteTipado} es ${maxJugadores} jugadores (${minJugadores} titulares + ${maxJugadores - minJugadores} suplentes).`
       )
       return
     }
@@ -79,19 +89,13 @@ export default function EquipoJugadoresScreen() {
     const nombre = nombreNuevo.trim()
     if (!nombre) return
 
-    dispatch({
-      type: 'AGREGAR_JUGADOR',
-      payload: { torneoId: torneoId!, equipoId: equipoId!, nombre },
-    })
+    dispatch({ type: 'AGREGAR_JUGADOR', payload: { nombre } })
     setNombreNuevo('')
     setModalAgregar(false)
   }
 
   function confirmarEliminarJugador() {
-    dispatch({
-      type: 'ELIMINAR_JUGADOR',
-      payload: { torneoId: torneoId!, equipoId: equipoId!, jugadorId: dialogEliminar.jugadorId },
-    })
+    dispatch({ type: 'ELIMINAR_JUGADOR', payload: { jugadorId: dialogEliminar.jugadorId } })
     setDialogEliminar({ visible: false, jugadorId: '' })
   }
 
@@ -104,7 +108,7 @@ export default function EquipoJugadoresScreen() {
         <View style={styles.bannerAviso}>
           <Text style={styles.bannerAvisoTexto}>
             ⚠️ Plantel incompleto: necesitás al menos {minJugadores} jugadores titulares para{' '}
-            {torneo.deporte}.
+            {deporteTipado}.
           </Text>
         </View>
       )}
