@@ -1,44 +1,45 @@
-import React, { useState } from 'react'
-import { Alert, FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import React, { useCallback } from 'react'
+import { Alert, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { router } from 'expo-router'
-import { useClubes } from '@/hooks/useTorneoApi'
+import { useFocusEffect } from '@react-navigation/native'
+import { useTorneos } from '@/hooks/useTorneoApi'
 import { useAuth } from '@/context/AuthContext'
-import ClubCard from '@/components/ClubCard'
 import EmptyState from '@/components/EmptyState'
 import FAB from '@/components/FAB'
 import LoadingScreen from '@/components/LoadingScreen'
 import ErrorScreen from '@/components/ErrorScreen'
 import { colors } from '@/theme/colors'
+import type { TorneoResumen } from '@/lib/api'
+
+const EMOJI_DEPORTE: Record<string, string> = {
+  'Fútbol 5': '⚽',
+  'Fútbol 9': '⚽',
+  Pádel: '🎾',
+  Básquet: '🏀',
+  Otro: '🏅',
+}
 
 /**
- * Pantalla principal — lista de todos los clubes del usuario.
- * Un club agrupa varios torneos (expansión vertical del dominio, E3).
+ * Pantalla principal — lista de todos los torneos.
+ * Ruta: /
  */
 export default function HomeScreen() {
-  const { clubes, cargando, error, crearClub, refetch } = useClubes()
+  const { torneos, cargando, error, refetch } = useTorneos()
   const { usuario, logout } = useAuth()
 
-  const [modalCrear, setModalCrear] = useState(false)
-  const [nombreNuevo, setNombreNuevo] = useState('')
-  const [creando, setCreando] = useState(false)
+  // Vuelve a pedir la lista cada vez que la pantalla recupera foco (ej: al
+  // volver de crear un torneo nuevo), no solo al montar.
+  useFocusEffect(
+    useCallback(() => {
+      refetch()
+    }, [refetch])
+  )
 
-  if (cargando && clubes.length === 0) return <LoadingScreen type="tabla" />
-  if (error && clubes.length === 0) return <ErrorScreen message={error} onRetry={refetch} />
+  if (cargando && torneos.length === 0) return <LoadingScreen type="tabla" />
+  if (error && torneos.length === 0) return <ErrorScreen message={error} onRetry={refetch} />
 
-  function irAClub(clubId: string) {
-    router.push(`/club/${clubId}`)
-  }
-
-  async function confirmarCrearClub() {
-    const nombre = nombreNuevo.trim()
-    if (!nombre) return
-    setCreando(true)
-    const ok = await crearClub(nombre)
-    setCreando(false)
-    if (ok) {
-      setNombreNuevo('')
-      setModalCrear(false)
-    }
+  function irATorneo(torneoId: string) {
+    router.push(`/torneo/${torneoId}`)
   }
 
   function confirmarLogout() {
@@ -62,58 +63,34 @@ export default function HomeScreen() {
       )}
 
       <FlatList
-        data={clubes}
+        data={torneos}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <ClubCard club={item} onPress={() => irAClub(item.id)} />}
-        contentContainerStyle={[styles.lista, clubes.length === 0 && styles.listaVacia]}
-        ListEmptyComponent={<EmptyState variante="clubes" />}
+        renderItem={({ item }) => <TorneoRow torneo={item} onPress={() => irATorneo(item.id)} />}
+        contentContainerStyle={[styles.lista, torneos.length === 0 && styles.listaVacia]}
+        ListEmptyComponent={<EmptyState variante="torneos" />}
         showsVerticalScrollIndicator={false}
       />
 
-      {/* Solo el rol organizador puede crear clubes */}
+      {/* Solo el rol organizador puede crear torneos */}
       {usuario?.rol === 'ORGANIZADOR' && (
-        <FAB onPress={() => setModalCrear(true)} label="Crear club" />
+        <FAB onPress={() => router.push('/torneo/crear')} label="Crear torneo" />
       )}
-
-      <Modal
-        transparent
-        visible={modalCrear}
-        animationType="fade"
-        onRequestClose={() => setModalCrear(false)}
-        statusBarTranslucent
-      >
-        <KeyboardAvoidingView style={styles.modalFondo} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <Pressable style={styles.modalFondo} onPress={() => setModalCrear(false)}>
-            <Pressable style={styles.modalCaja} onPress={() => {}}>
-              <Text style={styles.modalTitulo}>Nuevo club</Text>
-              <TextInput
-                style={styles.modalInput}
-                value={nombreNuevo}
-                onChangeText={setNombreNuevo}
-                placeholder="Ej: Club Atlético Central"
-                placeholderTextColor={colors.textSecondary}
-                autoFocus
-                maxLength={60}
-                returnKeyType="done"
-                onSubmitEditing={confirmarCrearClub}
-              />
-              <View style={styles.modalBotones}>
-                <Pressable style={[styles.modalBoton, styles.modalBotonCancelar]} onPress={() => setModalCrear(false)}>
-                  <Text style={styles.textoCancelar}>Cancelar</Text>
-                </Pressable>
-                <Pressable
-                  style={[styles.modalBoton, styles.modalBotonConfirmar, creando && { opacity: 0.6 }]}
-                  onPress={confirmarCrearClub}
-                  disabled={creando}
-                >
-                  <Text style={styles.textoConfirmar}>{creando ? 'Creando…' : 'Crear'}</Text>
-                </Pressable>
-              </View>
-            </Pressable>
-          </Pressable>
-        </KeyboardAvoidingView>
-      </Modal>
     </View>
+  )
+}
+
+function TorneoRow({ torneo, onPress }: { torneo: TorneoResumen; onPress: () => void }) {
+  return (
+    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.75}>
+      <View style={styles.iconoContenedor}>
+        <Text style={styles.emoji}>{EMOJI_DEPORTE[torneo.deporte] ?? '🏅'}</Text>
+      </View>
+      <View style={styles.info}>
+        <Text style={styles.nombre} numberOfLines={1}>{torneo.nombre}</Text>
+        <Text style={styles.meta}>{torneo.deporte} · Liga</Text>
+      </View>
+      <Text style={styles.flecha}>›</Text>
+    </TouchableOpacity>
   )
 }
 
@@ -133,36 +110,28 @@ const styles = StyleSheet.create({
   logout: { fontSize: 13, color: colors.danger, fontWeight: '700' },
   lista: { padding: 16 },
   listaVacia: { flex: 1 },
-  modalFondo: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+  card: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-  },
-  modalCaja: {
     backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: 24,
-    width: '100%',
-    maxWidth: 360,
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginBottom: 10,
     gap: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  modalTitulo: { fontSize: 17, fontWeight: '700', color: colors.textPrimary },
-  modalInput: {
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: colors.textPrimary,
+  iconoContenedor: {
+    width: 44, height: 44, borderRadius: 22,
+    backgroundColor: colors.primaryLight, alignItems: 'center', justifyContent: 'center',
   },
-  modalBotones: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 4 },
-  modalBoton: { paddingVertical: 10, paddingHorizontal: 18, borderRadius: 8, minWidth: 88, alignItems: 'center' },
-  modalBotonCancelar: { backgroundColor: colors.pendingBg },
-  modalBotonConfirmar: { backgroundColor: colors.primaryDark },
-  textoCancelar: { fontSize: 14, fontWeight: '600', color: colors.textPrimary },
-  textoConfirmar: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
+  emoji: { fontSize: 22 },
+  info: { flex: 1, gap: 2 },
+  nombre: { fontSize: 15, fontWeight: '700', color: colors.textPrimary },
+  meta: { fontSize: 13, color: colors.textSecondary },
+  flecha: { fontSize: 22, color: colors.textSecondary, fontWeight: '300' },
 })

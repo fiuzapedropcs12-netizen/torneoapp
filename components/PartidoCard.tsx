@@ -5,10 +5,24 @@ import { colors } from '@/theme/colors'
 
 type Props = {
   partido: Partido
-  onCargarResultado: (id: string) => void
+  /** Si no viene, el botón "Cargar resultado" no se muestra (rol JUGADOR). */
+  onCargarResultado?: (id: string) => void
+  /** Si no viene, el botón "Programar fecha" no se muestra (rol JUGADOR). */
+  onProgramarFecha?: (id: string) => void
+  /** Si no viene, el botón "Cargar estadísticas" no se muestra (rol JUGADOR). */
+  onCargarEstadisticas?: (id: string) => void
 }
 
-export default function PartidoCard({ partido, onCargarResultado }: Props) {
+function formatFecha(fecha: string): string {
+  const d = new Date(fecha)
+  const dia = String(d.getDate()).padStart(2, '0')
+  const mes = String(d.getMonth() + 1).padStart(2, '0')
+  const horas = String(d.getHours()).padStart(2, '0')
+  const minutos = String(d.getMinutes()).padStart(2, '0')
+  return `${dia}/${mes} ${horas}:${minutos}`
+}
+
+export default function PartidoCard({ partido, onCargarResultado, onProgramarFecha, onCargarEstadisticas }: Props) {
   const jugado = partido.estado === 'jugado'
 
   return (
@@ -42,16 +56,52 @@ export default function PartidoCard({ partido, onCargarResultado }: Props) {
         </Text>
       </View>
 
-      {/* Botón cargar resultado (solo partidos pendientes) */}
-      {!jugado && (
-        <TouchableOpacity
-          style={styles.botonCargar}
-          onPress={() => onCargarResultado(partido.id)}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.botonCargarText}>Cargar resultado</Text>
-        </TouchableOpacity>
+      {/* Ganador por penales, si el partido terminó empatado en una eliminatoria */}
+      {partido.ganadorPenalesId && (
+        <Text style={styles.penales}>
+          Ganó{' '}
+          {partido.ganadorPenalesId === partido.local.id ? partido.local.nombre : partido.visitante.nombre} por
+          penales
+        </Text>
       )}
+
+      {/* Fecha programada, si la hay */}
+      {partido.fecha && (
+        <Text style={styles.fecha}>{formatFecha(partido.fecha)}</Text>
+      )}
+
+      {/* Acciones de organizador */}
+      <View style={styles.acciones}>
+        {!jugado && onCargarResultado && (
+          <TouchableOpacity
+            style={styles.botonCargar}
+            onPress={() => onCargarResultado(partido.id)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.botonCargarText}>Cargar resultado</Text>
+          </TouchableOpacity>
+        )}
+
+        {!jugado && onProgramarFecha && (
+          <TouchableOpacity
+            style={styles.botonCargar}
+            onPress={() => onProgramarFecha(partido.id)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.botonCargarText}>{partido.fecha ? 'Reprogramar fecha' : 'Programar fecha'}</Text>
+          </TouchableOpacity>
+        )}
+
+        {jugado && onCargarEstadisticas && (
+          <TouchableOpacity
+            style={styles.botonCargar}
+            onPress={() => onCargarEstadisticas(partido.id)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.botonCargarText}>Cargar estadísticas</Text>
+          </TouchableOpacity>
+        )}
+      </View>
     </View>
   )
 }
@@ -119,7 +169,26 @@ const styles = StyleSheet.create({
   badgeTextPendiente: {
     color: colors.pendingText,
   },
+  penales: {
+    marginTop: 6,
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.primary,
+    textAlign: 'center',
+  },
+  fecha: {
+    marginTop: 8,
+    fontSize: 12,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
+  acciones: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
   botonCargar: {
+    flexGrow: 1,
     marginTop: 10,
     borderWidth: 1,
     borderColor: colors.primary,

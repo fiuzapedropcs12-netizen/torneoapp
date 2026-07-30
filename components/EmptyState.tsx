@@ -2,14 +2,9 @@ import React from 'react'
 import { StyleSheet, Text, View } from 'react-native'
 import { colors } from '@/theme/colors'
 
-type Variante = 'clubes' | 'torneos' | 'equipos' | 'fixture'
+type Variante = 'torneos' | 'equipos' | 'fixture'
 
 const CONTENIDO: Record<Variante, { emoji: string; titulo: string; subtitulo: string }> = {
-  clubes: {
-    emoji: '🏟️',
-    titulo: 'Sin clubes aún',
-    subtitulo: 'Tocá el botón + para crear tu primer club.',
-  },
   torneos: {
     emoji: '🏆',
     titulo: 'Sin torneos aún',

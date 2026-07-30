@@ -7,9 +7,10 @@ type Props = {
   equipo: Equipo
   fixtureGenerado: boolean
   onVerJugadores: () => void
-  onRenombrar: () => void
-  /** Se deshabilita si el fixture ya fue generado (RN-03). */
-  onEliminar: () => void
+  /** Si no viene, no se muestra "Renombrar" en el menú (rol JUGADOR). */
+  onRenombrar?: () => void
+  /** Si no viene, no se muestra "Eliminar" en el menú (rol JUGADOR). También se oculta si el fixture ya fue generado (RN-03). */
+  onEliminar?: () => void
 }
 
 /**
@@ -76,16 +77,19 @@ export default function EquipoRow({
               <Text style={styles.textoOpcion}>Ver jugadores</Text>
             </TouchableOpacity>
 
-            <View style={styles.separador} />
+            {onRenombrar && (
+              <>
+                <View style={styles.separador} />
+                <TouchableOpacity
+                  style={styles.opcion}
+                  onPress={() => { setMenuVisible(false); onRenombrar() }}
+                >
+                  <Text style={styles.textoOpcion}>Renombrar</Text>
+                </TouchableOpacity>
+              </>
+            )}
 
-            <TouchableOpacity
-              style={styles.opcion}
-              onPress={() => { setMenuVisible(false); onRenombrar() }}
-            >
-              <Text style={styles.textoOpcion}>Renombrar</Text>
-            </TouchableOpacity>
-
-            {!fixtureGenerado && (
+            {!fixtureGenerado && onEliminar && (
               <>
                 <View style={styles.separador} />
                 <TouchableOpacity

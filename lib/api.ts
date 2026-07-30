@@ -77,44 +77,31 @@ export const authApi = {
     }),
 }
 
-// ── Clubes ─────────────────────────────────────────────────────────────────
-
-export type ClubResumen = {
-  id: string
-  nombre: string
-  descripcion: string | null
-  ownerId: string
-  _count: { torneos: number }
-}
+// ── Torneos ────────────────────────────────────────────────────────────────
 
 export type TorneoResumen = {
   id: string
-  clubId: string
+  ownerId: string
   nombre: string
   deporte: string
   formato: string
+  rondaInicial?: string | null
+  campeonId?: string | null
+  _count?: { equipos: number }
 }
-
-export type ClubDetalle = ClubResumen & { torneos: TorneoResumen[] }
-
-export const clubesApi = {
-  list: () => request<ClubResumen[]>('/clubes'),
-  get: (clubId: string) => request<ClubDetalle>(`/clubes/${clubId}`),
-  create: (nombre: string, descripcion?: string) =>
-    request<ClubResumen>('/clubes', { method: 'POST', body: JSON.stringify({ nombre, descripcion }) }),
-  delete: (clubId: string) => request<void>(`/clubes/${clubId}`, { method: 'DELETE' }),
-}
-
-// ── Torneos ────────────────────────────────────────────────────────────────
 
 export type PartidoApi = {
   id: string
   jornada: number
+  ronda?: string | null
+  orden?: number | null
   localId: string
   visitanteId: string
   estado: 'pendiente' | 'jugado'
   golesLocal: number | null
   golesVisitante: number | null
+  ganadorPenalesId?: string | null
+  fecha: string | null
 }
 
 export type EquipoApi = {
@@ -143,9 +130,13 @@ export type TorneoDetalleApi = TorneoResumen & {
 }
 
 export const torneosApi = {
+  list: () => request<TorneoResumen[]>('/torneos'),
   get: (torneoId: string) => request<TorneoDetalleApi>(`/torneos/${torneoId}`),
-  create: (clubId: string, nombre: string, deporte: string) =>
-    request<TorneoResumen>('/torneos', { method: 'POST', body: JSON.stringify({ clubId, nombre, deporte }) }),
+  create: (nombre: string, deporte: string, formato: 'liga' | 'eliminatoria' = 'liga', rondaInicial?: string) =>
+    request<TorneoResumen>('/torneos', {
+      method: 'POST',
+      body: JSON.stringify({ nombre, deporte, formato, rondaInicial }),
+    }),
   update: (torneoId: string, data: { nombre?: string; deporte?: string }) =>
     request<TorneoResumen>(`/torneos/${torneoId}`, { method: 'PUT', body: JSON.stringify(data) }),
   delete: (torneoId: string) => request<void>(`/torneos/${torneoId}`, { method: 'DELETE' }),
@@ -172,14 +163,79 @@ export const equiposApi = {
     request<JugadorApi>(`/equipos/${equipoId}/jugadores`, { method: 'POST', body: JSON.stringify({ nombre }) }),
   deleteJugador: (jugadorId: string) =>
     request<void>(`/equipos/jugadores/${jugadorId}`, { method: 'DELETE' }),
+  getHistorial: (equipoId: string) => request<PartidoHistorialApi[]>(`/equipos/${equipoId}/historial`),
+  getJugador: (jugadorId: string) => request<JugadorDetalleApi>(`/equipos/jugadores/${jugadorId}`),
+  getHistorialJugador: (jugadorId: string) =>
+    request<HistorialJugadorApi>(`/equipos/jugadores/${jugadorId}/historial`),
+}
+
+// ── Historial y estadísticas individuales (E3 — RF-10 / RF-11) ──────────────
+
+export type EstadisticaPartidoApi = { goles: number; asistencias: number; atajadas: number }
+
+export type PartidoHistorialApi = {
+  id: string
+  jornada: number
+  estado: 'pendiente' | 'jugado'
+  fecha: string | null
+  golesLocal: number | null
+  golesVisitante: number | null
+  local: { id: string; nombre: string }
+  visitante: { id: string; nombre: string }
+  estadisticas?: EstadisticaPartidoApi | null
+}
+
+export type TotalesJugadorApi = {
+  goles: number
+  asistencias: number
+  atajadas: number
+  partidosJugados: number
+}
+
+export type HistorialJugadorApi = {
+  partidos: PartidoHistorialApi[]
+  totales: TotalesJugadorApi
+}
+
+export type JugadorDetalleApi = {
+  id: string
+  nombre: string
+  equipoId: string
+  equipoNombre: string
+  torneoId: string
+  torneoNombre: string
+}
+
+export type EstadisticaPartidoJugadorApi = {
+  jugadorId: string
+  nombre: string
+  equipoId: string
+  goles: number
+  asistencias: number
+  atajadas: number
 }
 
 // ── Partidos ───────────────────────────────────────────────────────────────
 
 export const partidosApi = {
-  cargarResultado: (partidoId: string, golesLocal: number, golesVisitante: number) =>
+  cargarResultado: (partidoId: string, golesLocal: number, golesVisitante: number, ganadorPenalesId?: string) =>
     request<PartidoApi>(`/partidos/${partidoId}/resultado`, {
       method: 'PUT',
-      body: JSON.stringify({ golesLocal, golesVisitante }),
+      body: JSON.stringify({ golesLocal, golesVisitante, ganadorPenalesId }),
+    }),
+  programarFecha: (partidoId: string, fecha: string) =>
+    request<PartidoApi>(`/partidos/${partidoId}/fecha`, {
+      method: 'PUT',
+      body: JSON.stringify({ fecha }),
+    }),
+  getEstadisticas: (partidoId: string) =>
+    request<EstadisticaPartidoJugadorApi[]>(`/partidos/${partidoId}/estadisticas`),
+  cargarEstadisticas: (
+    partidoId: string,
+    filas: { jugadorId: string; goles: number; asistencias: number; atajadas: number }[]
+  ) =>
+    request<EstadisticaPartidoJugadorApi[]>(`/partidos/${partidoId}/estadisticas`, {
+      method: 'PUT',
+      body: JSON.stringify(filas),
     }),
 }

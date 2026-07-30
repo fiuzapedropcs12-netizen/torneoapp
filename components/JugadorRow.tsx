@@ -6,16 +6,24 @@ import { colors } from '@/theme/colors'
 type Props = {
   jugador: Jugador
   numero: number
-  onEliminar: () => void
+  /** Si no viene, no se muestra el botón de eliminar (rol JUGADOR). */
+  onEliminar?: () => void
+  /** Si viene, la fila navega al detalle del jugador (historial + estadísticas). */
+  onPress?: () => void
 }
 
 /**
  * Fila de jugador dentro de la pantalla de plantel de un equipo.
  * Muestra número de dorsal (posición en lista), nombre y botón de eliminación.
  */
-export default function JugadorRow({ jugador, numero, onEliminar }: Props) {
+export default function JugadorRow({ jugador, numero, onEliminar, onPress }: Props) {
   return (
-    <View style={styles.fila}>
+    <TouchableOpacity
+      style={styles.fila}
+      onPress={onPress}
+      disabled={!onPress}
+      activeOpacity={onPress ? 0.7 : 1}
+    >
       {/* Número */}
       <View style={styles.numeroBadge}>
         <Text style={styles.numero}>{numero}</Text>
@@ -25,15 +33,17 @@ export default function JugadorRow({ jugador, numero, onEliminar }: Props) {
       <Text style={styles.nombre} numberOfLines={1}>{jugador.nombre}</Text>
 
       {/* Botón eliminar */}
-      <TouchableOpacity
-        style={styles.botonEliminar}
-        onPress={onEliminar}
-        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        accessibilityLabel={`Eliminar a ${jugador.nombre}`}
-      >
-        <Text style={styles.iconoEliminar}>✕</Text>
-      </TouchableOpacity>
-    </View>
+      {onEliminar && (
+        <TouchableOpacity
+          style={styles.botonEliminar}
+          onPress={onEliminar}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityLabel={`Eliminar a ${jugador.nombre}`}
+        >
+          <Text style={styles.iconoEliminar}>✕</Text>
+        </TouchableOpacity>
+      )}
+    </TouchableOpacity>
   )
 }
 

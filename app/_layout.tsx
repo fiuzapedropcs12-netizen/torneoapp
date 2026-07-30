@@ -4,6 +4,7 @@ import { MD3LightTheme, PaperProvider } from 'react-native-paper'
 import { useFonts, Inter_400Regular, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter'
 import { AuthProvider, useAuth } from '@/context/AuthContext'
 import { colors } from '@/theme/colors'
+import { configurarNotificaciones } from '@/lib/notifications'
 
 const paperTheme = {
   ...MD3LightTheme,
@@ -33,6 +34,12 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     }
   }, [usuario, cargando, segments, router])
 
+  useEffect(() => {
+    if (usuario) {
+      configurarNotificaciones()
+    }
+  }, [usuario])
+
   return children as React.ReactElement
 }
 
@@ -56,7 +63,7 @@ export default function RootLayout() {
             <Stack.Screen name="login" options={{ headerShown: false }} />
             <Stack.Screen name="register" options={{ title: 'Crear cuenta', headerStyle: { backgroundColor: colors.primary }, headerTintColor: '#FFFFFF' }} />
 
-            {/* Pantalla principal: lista de clubes */}
+            {/* Pantalla principal: lista de torneos */}
             <Stack.Screen
               name="index"
               options={{
@@ -64,16 +71,6 @@ export default function RootLayout() {
                 headerStyle: { backgroundColor: colors.primary },
                 headerTintColor: '#FFFFFF',
                 headerTitleStyle: { fontWeight: '700', fontSize: 18 },
-              }}
-            />
-
-            {/* Detalle de club: lista de torneos */}
-            <Stack.Screen
-              name="club/[clubId]"
-              options={{
-                headerStyle: { backgroundColor: colors.primary },
-                headerTintColor: '#FFFFFF',
-                headerTitleStyle: { fontWeight: '700' },
               }}
             />
 
@@ -103,6 +100,28 @@ export default function RootLayout() {
             <Stack.Screen
               name="torneo/[torneoId]/equipo/[equipoId]"
               options={{
+                headerStyle: { backgroundColor: colors.primary },
+                headerTintColor: '#FFFFFF',
+                headerTitleStyle: { fontWeight: '700' },
+              }}
+            />
+
+            {/* Detalle de jugador: historial + estadísticas (RF-10/RF-11) */}
+            <Stack.Screen
+              name="jugador/[jugadorId]"
+              options={{
+                headerStyle: { backgroundColor: colors.primary },
+                headerTintColor: '#FFFFFF',
+                headerTitleStyle: { fontWeight: '700' },
+              }}
+            />
+
+            {/* Carga de estadísticas de un partido (RF-11, solo organizador) */}
+            <Stack.Screen
+              name="partido/[partidoId]/estadisticas"
+              options={{
+                title: 'Estadísticas del partido',
+                presentation: 'modal',
                 headerStyle: { backgroundColor: colors.primary },
                 headerTintColor: '#FFFFFF',
                 headerTitleStyle: { fontWeight: '700' },

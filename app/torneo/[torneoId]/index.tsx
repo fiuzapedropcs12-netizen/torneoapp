@@ -17,6 +17,7 @@ import {
 import { router, useLocalSearchParams, useNavigation } from 'expo-router'
 import { useTorneo } from '@/hooks/useTorneoApi'
 import { useConexion } from '@/hooks/useConexion'
+import { useAuth } from '@/context/AuthContext'
 import TabsInternos, { type TabInterno } from '@/components/TabsInternos'
 import ConexionBanner from '@/components/ConexionBanner'
 import TablaRow from '@/components/TablaRow'
@@ -28,7 +29,10 @@ import ErrorScreen from '@/components/ErrorScreen'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import FAB from '@/components/FAB'
 import { colors } from '@/theme/colors'
-import type { FilaTabla } from '@/types/torneo'
+import type { FilaTabla, Partido, RondaEliminatoria } from '@/types/torneo'
+import { LABEL_RONDA, EQUIPOS_POR_RONDA } from '@/constants/formatos'
+
+const ORDEN_RONDAS: RondaEliminatoria[] = ['octavos', 'cuartos', 'semifinal', 'final']
 
 // ── Cabecera de la tabla de posiciones ────────────────────────────────────────
 
@@ -127,16 +131,22 @@ function ModalTexto({
 
 type ModalResultadoProps = {
   visible: boolean
+  localId: string
   localNombre: string
+  visitanteId: string
   visitanteNombre: string
-  onConfirmar: (gl: number, gv: number) => void
+  esEliminatoria: boolean
+  onConfirmar: (gl: number, gv: number, ganadorPenalesId?: string) => void
   onCancelar: () => void
 }
 
 function ModalResultado({
   visible,
+  localId,
   localNombre,
+  visitanteId,
   visitanteNombre,
+  esEliminatoria,
   onConfirmar,
   onCancelar,
 }: ModalResultadoProps) {
@@ -144,6 +154,7 @@ function ModalResultado({
   const [inputVisitante, setInputVisitante] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [enviando, setEnviando] = useState(false)
+  const [pidiendoPenales, setPidiendoPenales] = useState(false)
 
   useEffect(() => {
     if (visible) {
@@ -151,6 +162,7 @@ function ModalResultado({
       setInputVisitante('')
       setError(null)
       setEnviando(false)
+      setPidiendoPenales(false)
     }
   }, [visible])
 
@@ -163,11 +175,26 @@ function ModalResultado({
       return
     }
 
+    if (esEliminatoria && gl === gv) {
+      setError(null)
+      setPidiendoPenales(true)
+      return
+    }
+
     setError(null)
     setEnviando(true)
     // Simular latencia de 500ms (TODO E3: reemplazar con llamada al backend Go)
     await new Promise<void>((resolve) => setTimeout(resolve, 500))
     onConfirmar(gl, gv)
+    setEnviando(false)
+  }
+
+  async function confirmarConPenales(ganadorId: string) {
+    const gl = parseInt(inputLocal, 10)
+    const gv = parseInt(inputVisitante, 10)
+    setEnviando(true)
+    await new Promise<void>((resolve) => setTimeout(resolve, 500))
+    onConfirmar(gl, gv, ganadorId)
     setEnviando(false)
   }
 
@@ -188,65 +215,191 @@ function ModalResultado({
       >
         <TouchableOpacity style={{ flex: 1 }} onPress={onCancelar} activeOpacity={1} />
 
-        <View style={styles.resultadoModal}>
-          <View style={styles.resultadoHandle} />
-          <Text style={styles.resultadoTitulo}>Cargar resultado</Text>
-          <Text style={styles.resultadoSubtitulo}>
-            {localNombre} vs {visitanteNombre}
-          </Text>
+        {pidiendoPenales ? (
+          <View style={styles.resultadoModal}>
+            <View style={styles.resultadoHandle} />
+            <Text style={styles.resultadoTitulo}>Empate {inputLocal}-{inputVisitante}</Text>
+            <Text style={styles.resultadoSubtitulo}>¿Quién ganó por penales?</Text>
 
-          <View style={styles.resultadoInputsRow}>
-            <View style={styles.resultadoInputGrupo}>
-              <Text style={styles.resultadoInputLabel}>{localNombre.toUpperCase()}</Text>
-              <TextInput
-                style={[styles.resultadoInput, { borderColor: borderLocal }]}
-                value={inputLocal}
-                onChangeText={(v) => { setInputLocal(v); setError(null) }}
-                keyboardType="numeric"
-                placeholder="0"
-                placeholderTextColor={colors.border}
-                textAlign="center"
-                maxLength={3}
-                editable={!enviando}
-              />
-            </View>
+            <TouchableOpacity
+              style={[styles.resultadoBoton, enviando && { opacity: 0.7 }]}
+              onPress={() => confirmarConPenales(localId)}
+              disabled={enviando}
+              activeOpacity={0.8}
+            >
+              {enviando
+                ? <ActivityIndicator size="small" color="#fff" />
+                : <Text style={styles.resultadoBotonTexto}>{localNombre}</Text>
+              }
+            </TouchableOpacity>
 
-            <Text style={styles.resultadoSeparador}>—</Text>
+            <TouchableOpacity
+              style={[styles.resultadoBoton, enviando && { opacity: 0.7 }]}
+              onPress={() => confirmarConPenales(visitanteId)}
+              disabled={enviando}
+              activeOpacity={0.8}
+            >
+              {enviando
+                ? <ActivityIndicator size="small" color="#fff" />
+                : <Text style={styles.resultadoBotonTexto}>{visitanteNombre}</Text>
+              }
+            </TouchableOpacity>
 
-            <View style={styles.resultadoInputGrupo}>
-              <Text style={styles.resultadoInputLabel}>{visitanteNombre.toUpperCase()}</Text>
-              <TextInput
-                style={[styles.resultadoInput, { borderColor: borderVisitante }]}
-                value={inputVisitante}
-                onChangeText={(v) => { setInputVisitante(v); setError(null) }}
-                keyboardType="numeric"
-                placeholder="0"
-                placeholderTextColor={colors.border}
-                textAlign="center"
-                maxLength={3}
-                editable={!enviando}
-              />
-            </View>
+            <TouchableOpacity onPress={() => setPidiendoPenales(false)} disabled={enviando} activeOpacity={0.7}>
+              <Text style={styles.resultadoCancelar}>Volver</Text>
+            </TouchableOpacity>
           </View>
+        ) : (
+          <View style={styles.resultadoModal}>
+            <View style={styles.resultadoHandle} />
+            <Text style={styles.resultadoTitulo}>Cargar resultado</Text>
+            <Text style={styles.resultadoSubtitulo}>
+              {localNombre} vs {visitanteNombre}
+            </Text>
 
-          {error && <Text style={styles.resultadoError}>{error}</Text>}
+            <View style={styles.resultadoInputsRow}>
+              <View style={styles.resultadoInputGrupo}>
+                <Text style={styles.resultadoInputLabel}>{localNombre.toUpperCase()}</Text>
+                <TextInput
+                  style={[styles.resultadoInput, { borderColor: borderLocal }]}
+                  value={inputLocal}
+                  onChangeText={(v) => { setInputLocal(v); setError(null) }}
+                  keyboardType="numeric"
+                  placeholder="0"
+                  placeholderTextColor={colors.border}
+                  textAlign="center"
+                  maxLength={3}
+                  editable={!enviando}
+                />
+              </View>
 
-          <TouchableOpacity
-            style={[styles.resultadoBoton, enviando && { opacity: 0.7 }]}
-            onPress={confirmar}
-            disabled={enviando}
-            activeOpacity={0.8}
-          >
-            {enviando
-              ? <ActivityIndicator size="small" color="#fff" />
-              : <Text style={styles.resultadoBotonTexto}>Confirmar resultado</Text>
-            }
-          </TouchableOpacity>
+              <Text style={styles.resultadoSeparador}>—</Text>
 
-          <TouchableOpacity onPress={onCancelar} disabled={enviando} activeOpacity={0.7}>
-            <Text style={styles.resultadoCancelar}>Cancelar</Text>
-          </TouchableOpacity>
-        </View>
+              <View style={styles.resultadoInputGrupo}>
+                <Text style={styles.resultadoInputLabel}>{visitanteNombre.toUpperCase()}</Text>
+                <TextInput
+                  style={[styles.resultadoInput, { borderColor: borderVisitante }]}
+                  value={inputVisitante}
+                  onChangeText={(v) => { setInputVisitante(v); setError(null) }}
+                  keyboardType="numeric"
+                  placeholder="0"
+                  placeholderTextColor={colors.border}
+                  textAlign="center"
+                  maxLength={3}
+                  editable={!enviando}
+                />
+              </View>
+            </View>
+
+            {error && <Text style={styles.resultadoError}>{error}</Text>}
+
+            <TouchableOpacity
+              style={[styles.resultadoBoton, enviando && { opacity: 0.7 }]}
+              onPress={confirmar}
+              disabled={enviando}
+              activeOpacity={0.8}
+            >
+              {enviando
+                ? <ActivityIndicator size="small" color="#fff" />
+                : <Text style={styles.resultadoBotonTexto}>Confirmar resultado</Text>
+              }
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={onCancelar} disabled={enviando} activeOpacity={0.7}>
+              <Text style={styles.resultadoCancelar}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </KeyboardAvoidingView>
+    </Modal>
+  )
+}
+
+// ── Modal programar fecha ───────────────────────────────────────────────────────
+
+type ModalFechaProps = {
+  visible: boolean
+  localNombre: string
+  visitanteNombre: string
+  onConfirmar: (fechaISO: string) => void
+  onCancelar: () => void
+}
+
+function ModalFecha({ visible, localNombre, visitanteNombre, onConfirmar, onCancelar }: ModalFechaProps) {
+  const [fecha, setFecha] = useState('')
+  const [hora, setHora] = useState('')
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (visible) {
+      setFecha('')
+      setHora('')
+      setError(null)
+    }
+  }, [visible])
+
+  function confirmar() {
+    const match = fecha.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+    const matchHora = hora.trim().match(/^(\d{1,2}):(\d{2})$/)
+    if (!match || !matchHora) {
+      setError('Ingresá fecha (DD/MM/AAAA) y hora (HH:MM) válidas')
+      return
+    }
+    const [, dia, mes, anio] = match
+    const [, h, m] = matchHora
+    const d = new Date(Number(anio), Number(mes) - 1, Number(dia), Number(h), Number(m))
+    if (isNaN(d.getTime())) {
+      setError('Fecha u hora inválida')
+      return
+    }
+    setError(null)
+    onConfirmar(d.toISOString())
+  }
+
+  return (
+    <Modal
+      transparent
+      visible={visible}
+      animationType="fade"
+      onRequestClose={onCancelar}
+      statusBarTranslucent
+    >
+      <KeyboardAvoidingView style={styles.modalFondo} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <Pressable style={styles.modalFondo} onPress={onCancelar}>
+          <Pressable style={styles.modalCaja} onPress={() => {}}>
+            <Text style={styles.modalTitulo}>Programar fecha</Text>
+            <Text style={styles.resultadoSubtitulo}>{localNombre} vs {visitanteNombre}</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={fecha}
+              onChangeText={setFecha}
+              placeholder="DD/MM/AAAA"
+              placeholderTextColor={colors.textSecondary}
+              keyboardType="numbers-and-punctuation"
+              maxLength={10}
+            />
+            <TextInput
+              style={styles.modalInput}
+              value={hora}
+              onChangeText={setHora}
+              placeholder="HH:MM"
+              placeholderTextColor={colors.textSecondary}
+              keyboardType="numbers-and-punctuation"
+              maxLength={5}
+              returnKeyType="done"
+              onSubmitEditing={confirmar}
+            />
+            {error && <Text style={styles.resultadoError}>{error}</Text>}
+            <View style={styles.modalBotones}>
+              <Pressable style={[styles.modalBoton, styles.modalBotonCancelar]} onPress={onCancelar}>
+                <Text style={styles.modalBotonCancelarTexto}>Cancelar</Text>
+              </Pressable>
+              <Pressable style={[styles.modalBoton, styles.modalBotonConfirmar]} onPress={confirmar}>
+                <Text style={styles.modalBotonConfirmarTexto}>Guardar</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
       </KeyboardAvoidingView>
     </Modal>
   )
@@ -259,6 +412,8 @@ export default function TorneoDetailScreen() {
   const { torneo, cargando, error, dispatch } = useTorneo(torneoId!)
   const conexion = useConexion()
   const navigation = useNavigation()
+  const { usuario } = useAuth()
+  const esOrganizador = usuario?.rol === 'ORGANIZADOR'
 
   const [tabActiva, setTabActiva] = useState<TabInterno>('tabla')
 
@@ -274,39 +429,52 @@ export default function TorneoDetailScreen() {
   const [modalResultado, setModalResultado] = useState<{ visible: boolean; partidoId: string }>({
     visible: false, partidoId: '',
   })
+  const [modalFecha, setModalFecha] = useState<{ visible: boolean; partidoId: string }>({
+    visible: false, partidoId: '',
+  })
 
   // Configurar header dinámicamente con el nombre del torneo
   useLayoutEffect(() => {
     if (!torneo) return
     navigation.setOptions({
       title: torneo.nombre,
-      headerRight: () => (
-        <View style={{ flexDirection: 'row', gap: 16, marginRight: 4 }}>
-          <TouchableOpacity
-            onPress={() =>
-              router.push({
-                pathname: '/torneo/crear',
-                params: {
-                  torneoId: torneo.id,
-                  nombreInicial: torneo.nombre,
-                  deporteInicial: torneo.deporte,
-                },
-              })
-            }
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Text style={styles.headerBtn}>✏️</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => setDialogEliminarTorneo(true)}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Text style={styles.headerBtn}>🗑️</Text>
-          </TouchableOpacity>
-        </View>
-      ),
+      headerRight: esOrganizador
+        ? () => (
+            <View style={{ flexDirection: 'row', gap: 16, marginRight: 4 }}>
+              <TouchableOpacity
+                onPress={() =>
+                  router.push({
+                    pathname: '/torneo/crear',
+                    params: {
+                      torneoId: torneo.id,
+                      nombreInicial: torneo.nombre,
+                      deporteInicial: torneo.deporte,
+                      formatoInicial: torneo.formato,
+                    },
+                  })
+                }
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Text style={styles.headerBtn}>✏️</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setDialogEliminarTorneo(true)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Text style={styles.headerBtn}>🗑️</Text>
+              </TouchableOpacity>
+            </View>
+          )
+        : undefined,
     })
-  }, [torneo, navigation])
+  }, [torneo, navigation, esOrganizador])
+
+  // En eliminatoria no hay tab "Tabla": si quedó activa (ej. al cambiar de torneo), redirigir a fixture
+  useEffect(() => {
+    if (torneo?.formato === 'Eliminatoria' && tabActiva === 'tabla') {
+      setTabActiva('fixture')
+    }
+  }, [torneo?.formato, tabActiva])
 
   // Mientras se trae el torneo desde la API, mostramos loading (no redirigir todavía)
   if (cargando && !torneo) return <LoadingScreen type="tabla" />
@@ -318,11 +486,16 @@ export default function TorneoDetailScreen() {
     return null
   }
 
+  const esEliminatoria = torneo.formato === 'Eliminatoria'
   const fixtureGenerado = torneo.partidos.length > 0
-  const puedeGenerarFixture = !fixtureGenerado && torneo.equipos.length >= 2
+  const puedeGenerarFixture = esEliminatoria
+    ? !fixtureGenerado && torneo.rondaInicial != null && torneo.equipos.length === EQUIPOS_POR_RONDA[torneo.rondaInicial]
+    : !fixtureGenerado && torneo.equipos.length >= 2
 
   // Partido activo en modal resultado
   const partidoActivo = torneo.partidos.find((p) => p.id === modalResultado.partidoId) ?? null
+  // Partido activo en modal programar fecha
+  const partidoFechaActivo = torneo.partidos.find((p) => p.id === modalFecha.partidoId) ?? null
 
   // ── Acciones ────────────────────────────────────────────────────────────────
 
@@ -360,12 +533,35 @@ export default function TorneoDetailScreen() {
     dispatch({ type: 'GENERAR_FIXTURE', payload: { torneoId: torneo!.id } })
   }
 
-  function cargarResultado(gl: number, gv: number) {
+  function cargarResultado(gl: number, gv: number, ganadorPenalesId?: string) {
     dispatch({
       type: 'CARGAR_RESULTADO',
-      payload: { torneoId: torneo!.id, partidoId: modalResultado.partidoId, golesLocal: gl, golesVisitante: gv },
+      payload: {
+        torneoId: torneo!.id,
+        partidoId: modalResultado.partidoId,
+        golesLocal: gl,
+        golesVisitante: gv,
+        ganadorPenalesId,
+      },
     })
     setModalResultado({ visible: false, partidoId: '' })
+  }
+
+  function programarFecha(fechaISO: string) {
+    dispatch({
+      type: 'PROGRAMAR_FECHA',
+      payload: { torneoId: torneo!.id, partidoId: modalFecha.partidoId, fecha: fechaISO },
+    })
+    setModalFecha({ visible: false, partidoId: '' })
+  }
+
+  function abrirEstadisticas(partidoId: string) {
+    const partido = torneo!.partidos.find((p) => p.id === partidoId)
+    if (!partido) return
+    router.push({
+      pathname: '/partido/[partidoId]/estadisticas',
+      params: { partidoId, localId: partido.local.id, visitanteId: partido.visitante.id },
+    })
   }
 
   // ── Render de contenido por tab ─────────────────────────────────────────────
@@ -410,10 +606,22 @@ export default function TorneoDetailScreen() {
 
   function renderFixture() {
     if (!fixtureGenerado) {
+      const faltanEquipos =
+        esEliminatoria && torneo!.rondaInicial != null
+          ? EQUIPOS_POR_RONDA[torneo!.rondaInicial] - torneo!.equipos.length
+          : null
+
       return (
         <ScrollView contentContainerStyle={styles.fixtureVacioContenedor}>
           <EmptyState variante="fixture" />
-          {puedeGenerarFixture && (
+          {esEliminatoria && faltanEquipos !== null && faltanEquipos !== 0 && (
+            <Text style={styles.bannerInfoTexto}>
+              {faltanEquipos > 0
+                ? `Faltan ${faltanEquipos} equipo(s) para arrancar en ${LABEL_RONDA[torneo!.rondaInicial!]}`
+                : `Sobran ${-faltanEquipos} equipo(s): necesitás exactamente ${EQUIPOS_POR_RONDA[torneo!.rondaInicial!]} para ${LABEL_RONDA[torneo!.rondaInicial!]}`}
+            </Text>
+          )}
+          {esOrganizador && puedeGenerarFixture && (
             <TouchableOpacity style={styles.botonGenerarFixture} onPress={generarFixture} activeOpacity={0.8}>
               <Text style={styles.botonGenerarFixtureTexto}>Generar fixture</Text>
             </TouchableOpacity>
@@ -422,8 +630,53 @@ export default function TorneoDetailScreen() {
       )
     }
 
-    // Agrupar partidos por jornada
-    const jornadas = torneo!.partidos.reduce<Record<number, typeof torneo.partidos>>((acc, p) => {
+    const campeon = esEliminatoria && torneo!.campeonId
+      ? torneo!.equipos.find((e) => e.id === torneo!.campeonId)
+      : null
+
+    if (esEliminatoria) {
+      // Agrupar partidos por ronda, en orden canónico octavos → final
+      const porRonda = torneo!.partidos.reduce<Partial<Record<RondaEliminatoria, Partido[]>>>((acc, p) => {
+        if (!p.ronda) return acc
+        if (!acc[p.ronda]) acc[p.ronda] = []
+        acc[p.ronda]!.push(p)
+        return acc
+      }, {})
+      const grupos = ORDEN_RONDAS.filter((r) => porRonda[r]?.length).map((r) => ({ ronda: r, partidos: porRonda[r]! }))
+
+      return (
+        <FlatList
+          data={grupos}
+          keyExtractor={(item) => `r-${item.ronda}`}
+          ListHeaderComponent={
+            campeon ? (
+              <View style={styles.bannerCampeon}>
+                <Text style={styles.bannerCampeonTexto}>🏆 Campeón: {campeon.nombre}</Text>
+              </View>
+            ) : null
+          }
+          renderItem={({ item }) => (
+            <View>
+              <Text style={styles.jornadaHeader}>{LABEL_RONDA[item.ronda]}</Text>
+              {item.partidos.map((p) => (
+                <PartidoCard
+                  key={p.id}
+                  partido={p}
+                  onCargarResultado={esOrganizador ? (id) => setModalResultado({ visible: true, partidoId: id }) : undefined}
+                  onProgramarFecha={esOrganizador ? (id) => setModalFecha({ visible: true, partidoId: id }) : undefined}
+                  onCargarEstadisticas={esOrganizador ? abrirEstadisticas : undefined}
+                />
+              ))}
+            </View>
+          )}
+          contentContainerStyle={styles.fixtureLista}
+          showsVerticalScrollIndicator={false}
+        />
+      )
+    }
+
+    // Liga: agrupar partidos por jornada
+    const jornadas = torneo!.partidos.reduce<Record<number, Partido[]>>((acc, p) => {
       if (!acc[p.jornada]) acc[p.jornada] = []
       acc[p.jornada].push(p)
       return acc
@@ -440,7 +693,9 @@ export default function TorneoDetailScreen() {
               <PartidoCard
                 key={p.id}
                 partido={p}
-                onCargarResultado={(id) => setModalResultado({ visible: true, partidoId: id })}
+                onCargarResultado={esOrganizador ? (id) => setModalResultado({ visible: true, partidoId: id }) : undefined}
+                onProgramarFecha={esOrganizador ? (id) => setModalFecha({ visible: true, partidoId: id }) : undefined}
+                onCargarEstadisticas={esOrganizador ? abrirEstadisticas : undefined}
               />
             ))}
           </View>
@@ -470,11 +725,13 @@ export default function TorneoDetailScreen() {
                     params: { torneoId: torneo!.id, equipoId: item.id, deporte: torneo!.deporte },
                   })
                 }
-                onRenombrar={() =>
+                onRenombrar={esOrganizador ? () =>
                   setModalRenombrar({ visible: true, equipoId: item.id, nombre: item.nombre })
+                  : undefined
                 }
-                onEliminar={() =>
+                onEliminar={esOrganizador ? () =>
                   setDialogEliminarEquipo({ visible: true, equipoId: item.id })
+                  : undefined
                 }
               />
             )}
@@ -482,8 +739,8 @@ export default function TorneoDetailScreen() {
           />
         )}
 
-        {/* FAB solo si el fixture no fue generado aún (RN-03) */}
-        {!fixtureGenerado && (
+        {/* FAB solo si el fixture no fue generado aún (RN-03) y el usuario es organizador */}
+        {esOrganizador && !fixtureGenerado && (
           <FAB onPress={() => setModalAgregarEquipo(true)} label="Agregar equipo" />
         )}
       </View>
@@ -498,7 +755,11 @@ export default function TorneoDetailScreen() {
       <ConexionBanner estado={conexion} />
 
       {/* Selector de pestañas internas */}
-      <TabsInternos activa={tabActiva} onChange={setTabActiva} />
+      <TabsInternos
+        activa={tabActiva}
+        onChange={setTabActiva}
+        disponibles={esEliminatoria ? ['fixture', 'equipos'] : ['tabla', 'fixture', 'equipos']}
+      />
 
       {/* Contenido de la pestaña activa */}
       <View style={styles.flex}>
@@ -552,10 +813,24 @@ export default function TorneoDetailScreen() {
       {partidoActivo && (
         <ModalResultado
           visible={modalResultado.visible}
+          localId={partidoActivo.local.id}
           localNombre={partidoActivo.local.nombre}
+          visitanteId={partidoActivo.visitante.id}
           visitanteNombre={partidoActivo.visitante.nombre}
+          esEliminatoria={esEliminatoria}
           onConfirmar={cargarResultado}
           onCancelar={() => setModalResultado({ visible: false, partidoId: '' })}
+        />
+      )}
+
+      {/* Programar fecha */}
+      {partidoFechaActivo && (
+        <ModalFecha
+          visible={modalFecha.visible}
+          localNombre={partidoFechaActivo.local.nombre}
+          visitanteNombre={partidoFechaActivo.visitante.nombre}
+          onConfirmar={programarFecha}
+          onCancelar={() => setModalFecha({ visible: false, partidoId: '' })}
         />
       )}
     </View>
@@ -634,6 +909,19 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     paddingVertical: 8,
     paddingHorizontal: 4,
+  },
+  bannerCampeon: {
+    backgroundColor: colors.primaryLight,
+    marginHorizontal: 12,
+    marginTop: 12,
+    padding: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  bannerCampeonTexto: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.primary,
   },
   botonGenerarFixture: {
     marginTop: 20,

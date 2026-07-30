@@ -26,16 +26,8 @@ async function main() {
     },
   });
 
-  const club = await prisma.club.create({
-    data: {
-      nombre: "Club Relámpago FRLP",
-      descripcion: "Club demo para la Entrega 3",
-      ownerId: organizador.id,
-    },
-  });
-
   const torneo = await prisma.torneo.create({
-    data: { clubId: club.id, nombre: "Torneo Relámpago 2026", deporte: "Fútbol 5" },
+    data: { ownerId: organizador.id, nombre: "Torneo Relámpago 2026", deporte: "Fútbol 5" },
   });
 
   const nombres = ["Equipo 1", "Equipo 2", "Equipo 3", "Equipo 4", "Equipo 5", "Equipo 6"];

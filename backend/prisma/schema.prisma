@@ -1,5 +1,5 @@
 // TorneoApp — Entrega 3
-// Modelo de datos: expansión vertical (Club agrupa Torneos) + auth con roles
+// Modelo de datos: auth con roles + torneos propios de cada organizador
 
 generator client {
   provider = "prisma-client-js"
@@ -22,6 +22,14 @@ enum EstadoPartido {
 
 enum FormatoCompetencia {
   liga
+  eliminatoria
+}
+
+enum RondaEliminatoria {
+  octavos
+  cuartos
+  semifinal
+  final
 }
 
 model User {
@@ -32,34 +40,20 @@ model User {
   rol          Rol      @default(ORGANIZADOR)
   createdAt    DateTime @default(now())
 
-  clubes Club[] @relation("ClubOwner")
+  torneos Torneo[] @relation("TorneoOwner")
 
   @@map("users")
 }
 
-/// Entidad de expansión vertical (E3): agrupa varios torneos bajo una
-/// misma organización/club, cada uno con su propio owner (organizador).
-model Club {
-  id          String   @id @default(cuid())
-  nombre      String
-  descripcion String?
-  ownerId     String
-  owner       User     @relation("ClubOwner", fields: [ownerId], references: [id])
-  createdAt   DateTime @default(now())
-
-  torneos Torneo[]
-
-  @@map("clubes")
-}
-
 model Torneo {
-  id        String             @id @default(cuid())
-  clubId    String
-  club      Club               @relation(fields: [clubId], references: [id], onDelete: Cascade)
-  nombre    String
-  deporte   String
-  formato   FormatoCompetencia @default(liga)
-  createdAt DateTime           @default(now())
+  id           String             @id @default(cuid())
+  ownerId      String
+  owner        User               @relation("TorneoOwner", fields: [ownerId], references: [id])
+  nombre       String
+  deporte      String
+  formato      FormatoCompetencia @default(liga)
+  rondaInicial RondaEliminatoria?
+  createdAt    DateTime           @default(now())
 
   equipos  Equipo[]
   partidos Partido[]
@@ -73,9 +67,10 @@ model Equipo {
   torneo   Torneo @relation(fields: [torneoId], references: [id], onDelete: Cascade)
   nombre   String
 
-  jugadores       Jugador[]
-  partidosLocal   Partido[] @relation("PartidoLocal")
-  partidosVisita  Partido[] @relation("PartidoVisitante")
+  jugadores              Jugador[]
+  partidosLocal          Partido[] @relation("PartidoLocal")
+  partidosVisita         Partido[] @relation("PartidoVisitante")
+  partidosGanadosPenales Partido[] @relation("PartidoGanadorPenales")
 
   @@map("equipos")
 }
@@ -86,21 +81,45 @@ model Jugador {
   equipo   Equipo @relation(fields: [equipoId], references: [id], onDelete: Cascade)
   nombre   String
 
+  estadisticas EstadisticaJugador[]
+
   @@map("jugadores")
 }
 
 model Partido {
-  id            String        @id @default(cuid())
-  torneoId      String
-  torneo        Torneo        @relation(fields: [torneoId], references: [id], onDelete: Cascade)
-  jornada       Int
-  localId       String
-  local         Equipo        @relation("PartidoLocal", fields: [localId], references: [id])
-  visitanteId   String
-  visitante     Equipo        @relation("PartidoVisitante", fields: [visitanteId], references: [id])
-  estado        EstadoPartido @default(pendiente)
-  golesLocal     Int?
-  golesVisitante Int?
+  id               String             @id @default(cuid())
+  torneoId         String
+  torneo           Torneo             @relation(fields: [torneoId], references: [id], onDelete: Cascade)
+  jornada          Int
+  orden            Int?
+  ronda            RondaEliminatoria?
+  localId          String
+  local            Equipo             @relation("PartidoLocal", fields: [localId], references: [id])
+  visitanteId      String
+  visitante        Equipo             @relation("PartidoVisitante", fields: [visitanteId], references: [id])
+  estado           EstadoPartido      @default(pendiente)
+  golesLocal       Int?
+  golesVisitante   Int?
+  ganadorPenalesId String?
+  ganadorPenales   Equipo?            @relation("PartidoGanadorPenales", fields: [ganadorPenalesId], references: [id])
+  fecha            DateTime?
+
+  estadisticas EstadisticaJugador[]
 
   @@map("partidos")
+}
+
+/// RF-11 (E3): estadísticas individuales de un jugador en un partido puntual.
+model EstadisticaJugador {
+  id          String  @id @default(cuid())
+  partidoId   String
+  partido     Partido @relation(fields: [partidoId], references: [id], onDelete: Cascade)
+  jugadorId   String
+  jugador     Jugador @relation(fields: [jugadorId], references: [id], onDelete: Cascade)
+  goles       Int     @default(0)
+  asistencias Int     @default(0)
+  atajadas    Int     @default(0)
+
+  @@unique([partidoId, jugadorId])
+  @@map("estadisticas_jugador")
 }

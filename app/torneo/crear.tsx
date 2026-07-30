@@ -13,32 +13,37 @@ import {
 import { router, useLocalSearchParams } from 'expo-router'
 import { torneosApi, ApiError } from '@/lib/api'
 import { DEPORTES } from '@/constants/deportes'
-import type { Deporte } from '@/types/torneo'
+import { RONDAS_ELIMINATORIA } from '@/constants/formatos'
+import type { Deporte, Formato, RondaEliminatoria } from '@/types/torneo'
 import { colors } from '@/theme/colors'
 
 /**
  * Pantalla de creación y edición de torneo.
  * Ruta: /torneo/crear
- * Params: clubId (requerido para crear) · torneoId/nombreInicial/deporteInicial (modo edición)
+ * Params: torneoId/nombreInicial/deporteInicial (modo edición)
  *
  * RF-02: Crear torneo con nombre, deporte y formato.
  * RF-03: Editar torneo (mismo formulario, acción diferente).
- * Formato: fijo en 'Liga'. En E3+ se podría habilitar el selector.
+ * El formato (y la instancia inicial en eliminatoria) solo se eligen al crear:
+ * no se pueden cambiar después.
  */
 export default function CrearTorneoScreen() {
   const params = useLocalSearchParams<{
-    clubId?: string
     torneoId?: string
     nombreInicial?: string
     deporteInicial?: string
+    formatoInicial?: string
   }>()
 
   const modoEdicion = Boolean(params.torneoId)
+  const formatoInicial: Formato = params.formatoInicial === 'Eliminatoria' ? 'Eliminatoria' : 'Liga'
 
   const [nombre, setNombre] = useState(params.nombreInicial ?? '')
   const [deporte, setDeporte] = useState<Deporte>(
     (params.deporteInicial as Deporte) ?? 'Fútbol 5'
   )
+  const [formato, setFormato] = useState<Formato>(formatoInicial)
+  const [rondaInicial, setRondaInicial] = useState<RondaEliminatoria | null>(null)
   const [guardando, setGuardando] = useState(false)
 
   async function guardar() {
@@ -47,17 +52,22 @@ export default function CrearTorneoScreen() {
       Alert.alert('Nombre requerido', 'Ingresá un nombre para el torneo.')
       return
     }
+    if (!modoEdicion && formato === 'Eliminatoria' && !rondaInicial) {
+      Alert.alert('Instancia requerida', 'Elegí desde qué instancia arranca el torneo.')
+      return
+    }
 
     setGuardando(true)
     try {
       if (modoEdicion && params.torneoId) {
         await torneosApi.update(params.torneoId, { nombre: nombreTrimado, deporte })
       } else {
-        if (!params.clubId) {
-          Alert.alert('Error', 'Falta el club para crear el torneo.')
-          return
-        }
-        await torneosApi.create(params.clubId, nombreTrimado, deporte)
+        await torneosApi.create(
+          nombreTrimado,
+          deporte,
+          formato === 'Eliminatoria' ? 'eliminatoria' : 'liga',
+          formato === 'Eliminatoria' ? (rondaInicial as RondaEliminatoria) : undefined
+        )
       }
       router.back()
     } catch (e) {
@@ -91,12 +101,54 @@ export default function CrearTorneoScreen() {
           returnKeyType="done"
         />
 
-        {/* Campo: Formato (fijo Liga en E2) */}
+        {/* Campo: Formato */}
         <Text style={styles.etiqueta}>Formato</Text>
-        <View style={styles.campoFijo}>
-          <Text style={styles.valorFijo}>Liga</Text>
-          <Text style={styles.notaFijo}>Otros formatos disponibles en E3</Text>
-        </View>
+        {modoEdicion ? (
+          <View style={styles.campoFijo}>
+            <Text style={styles.valorFijo}>{formatoInicial}</Text>
+            <Text style={styles.notaFijo}>No se puede cambiar</Text>
+          </View>
+        ) : (
+          <View style={styles.chips}>
+            {(['Liga', 'Eliminatoria'] as Formato[]).map((f) => {
+              const seleccionado = f === formato
+              return (
+                <Pressable
+                  key={f}
+                  style={[styles.chip, seleccionado && styles.chipActivo]}
+                  onPress={() => setFormato(f)}
+                  android_ripple={{ color: colors.primaryLight }}
+                >
+                  <Text style={[styles.chipTexto, seleccionado && styles.chipTextoActivo]}>{f}</Text>
+                </Pressable>
+              )
+            })}
+          </View>
+        )}
+
+        {/* Campo: Instancia inicial — solo para Eliminatoria, solo al crear */}
+        {!modoEdicion && formato === 'Eliminatoria' && (
+          <>
+            <Text style={styles.etiqueta}>¿Desde qué instancia arranca?</Text>
+            <View style={styles.chips}>
+              {RONDAS_ELIMINATORIA.map((r) => {
+                const seleccionado = r.id === rondaInicial
+                return (
+                  <Pressable
+                    key={r.id}
+                    style={[styles.chip, seleccionado && styles.chipActivo]}
+                    onPress={() => setRondaInicial(r.id)}
+                    android_ripple={{ color: colors.primaryLight }}
+                  >
+                    <Text style={[styles.chipTexto, seleccionado && styles.chipTextoActivo]}>
+                      {r.label} ({r.equipos} equipos)
+                    </Text>
+                  </Pressable>
+                )
+              })}
+            </View>
+          </>
+        )}
 
         {/* Campo: Deporte — selector de chips */}
         <Text style={styles.etiqueta}>Deporte</Text>

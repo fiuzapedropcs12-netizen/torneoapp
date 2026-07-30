@@ -101,7 +101,7 @@ export default function RegisterScreen() {
           })}
         </View>
         <Text style={styles.nota}>
-          El organizador crea y gestiona clubes/torneos. El jugador solo puede consultar.
+          El organizador crea y gestiona torneos. El jugador solo puede consultar.
         </Text>
 
         <Pressable style={[styles.boton, cargando && { opacity: 0.6 }]} onPress={crearCuenta} disabled={cargando}>

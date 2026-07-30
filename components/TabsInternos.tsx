@@ -13,6 +13,7 @@ const TABS: { id: TabInterno; label: string }[] = [
 type Props = {
   activa: TabInterno
   onChange: (tab: TabInterno) => void
+  disponibles?: TabInterno[]
 }
 
 /**
@@ -20,10 +21,11 @@ type Props = {
  * Reemplaza la navegación de fondo nativa (expo-router Tabs) con un switcher
  * liviano que no produce rutas separadas.
  */
-export default function TabsInternos({ activa, onChange }: Props) {
+export default function TabsInternos({ activa, onChange, disponibles }: Props) {
+  const tabs = disponibles ? TABS.filter((t) => disponibles.includes(t.id)) : TABS
   return (
     <View style={styles.contenedor}>
-      {TABS.map((tab) => {
+      {tabs.map((tab) => {
         const estaActiva = tab.id === activa
         return (
           <TouchableOpacity

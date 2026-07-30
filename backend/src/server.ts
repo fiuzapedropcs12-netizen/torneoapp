@@ -2,7 +2,6 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import { authRouter } from "./routes/auth";
-import { clubsRouter } from "./routes/clubs";
 import { torneosRouter } from "./routes/torneos";
 import { equiposRouter } from "./routes/equipos";
 import { partidosRouter } from "./routes/partidos";
@@ -14,7 +13,6 @@ app.use(express.json());
 app.get("/health", (_req, res) => res.json({ status: "ok" }));
 
 app.use("/auth", authRouter);
-app.use("/clubes", clubsRouter);
 app.use("/torneos", torneosRouter);
 app.use("/equipos", equiposRouter);
 app.use("/partidos", partidosRouter);
