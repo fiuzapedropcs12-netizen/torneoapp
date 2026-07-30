@@ -1,0 +1,106 @@
+// TorneoApp — Entrega 3
+// Modelo de datos: expansión vertical (Club agrupa Torneos) + auth con roles
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Rol {
+  ORGANIZADOR
+  JUGADOR
+}
+
+enum EstadoPartido {
+  pendiente
+  jugado
+}
+
+enum FormatoCompetencia {
+  liga
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  nombre       String
+  rol          Rol      @default(ORGANIZADOR)
+  createdAt    DateTime @default(now())
+
+  clubes Club[] @relation("ClubOwner")
+
+  @@map("users")
+}
+
+/// Entidad de expansión vertical (E3): agrupa varios torneos bajo una
+/// misma organización/club, cada uno con su propio owner (organizador).
+model Club {
+  id          String   @id @default(cuid())
+  nombre      String
+  descripcion String?
+  ownerId     String
+  owner       User     @relation("ClubOwner", fields: [ownerId], references: [id])
+  createdAt   DateTime @default(now())
+
+  torneos Torneo[]
+
+  @@map("clubes")
+}
+
+model Torneo {
+  id        String             @id @default(cuid())
+  clubId    String
+  club      Club               @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  nombre    String
+  deporte   String
+  formato   FormatoCompetencia @default(liga)
+  createdAt DateTime           @default(now())
+
+  equipos  Equipo[]
+  partidos Partido[]
+
+  @@map("torneos")
+}
+
+model Equipo {
+  id       String @id @default(cuid())
+  torneoId String
+  torneo   Torneo @relation(fields: [torneoId], references: [id], onDelete: Cascade)
+  nombre   String
+
+  jugadores       Jugador[]
+  partidosLocal   Partido[] @relation("PartidoLocal")
+  partidosVisita  Partido[] @relation("PartidoVisitante")
+
+  @@map("equipos")
+}
+
+model Jugador {
+  id       String @id @default(cuid())
+  equipoId String
+  equipo   Equipo @relation(fields: [equipoId], references: [id], onDelete: Cascade)
+  nombre   String
+
+  @@map("jugadores")
+}
+
+model Partido {
+  id            String        @id @default(cuid())
+  torneoId      String
+  torneo        Torneo        @relation(fields: [torneoId], references: [id], onDelete: Cascade)
+  jornada       Int
+  localId       String
+  local         Equipo        @relation("PartidoLocal", fields: [localId], references: [id])
+  visitanteId   String
+  visitante     Equipo        @relation("PartidoVisitante", fields: [visitanteId], references: [id])
+  estado        EstadoPartido @default(pendiente)
+  golesLocal     Int?
+  golesVisitante Int?
+
+  @@map("partidos")
+}

@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native'
 import { router, useLocalSearchParams } from 'expo-router'
-import { useApp } from '@/context/AppContext'
+import { torneosApi, ApiError } from '@/lib/api'
 import { DEPORTES } from '@/constants/deportes'
 import type { Deporte } from '@/types/torneo'
 import { colors } from '@/theme/colors'
@@ -19,15 +19,15 @@ import { colors } from '@/theme/colors'
 /**
  * Pantalla de creación y edición de torneo.
  * Ruta: /torneo/crear
- * Params opcionales: torneoId (modo edición), nombreInicial, deporteInicial
+ * Params: clubId (requerido para crear) · torneoId/nombreInicial/deporteInicial (modo edición)
  *
  * RF-02: Crear torneo con nombre, deporte y formato.
  * RF-03: Editar torneo (mismo formulario, acción diferente).
- * Formato: fijo en 'Liga' para E2. En E3 se habilitará el selector.
+ * Formato: fijo en 'Liga'. En E3+ se podría habilitar el selector.
  */
 export default function CrearTorneoScreen() {
-  const { dispatch } = useApp()
   const params = useLocalSearchParams<{
+    clubId?: string
     torneoId?: string
     nombreInicial?: string
     deporteInicial?: string
@@ -39,27 +39,32 @@ export default function CrearTorneoScreen() {
   const [deporte, setDeporte] = useState<Deporte>(
     (params.deporteInicial as Deporte) ?? 'Fútbol 5'
   )
+  const [guardando, setGuardando] = useState(false)
 
-  function guardar() {
+  async function guardar() {
     const nombreTrimado = nombre.trim()
     if (!nombreTrimado) {
       Alert.alert('Nombre requerido', 'Ingresá un nombre para el torneo.')
       return
     }
 
-    if (modoEdicion && params.torneoId) {
-      dispatch({
-        type: 'EDITAR_TORNEO',
-        payload: { torneoId: params.torneoId, nombre: nombreTrimado, deporte },
-      })
-    } else {
-      dispatch({
-        type: 'CREAR_TORNEO',
-        payload: { nombre: nombreTrimado, deporte },
-      })
+    setGuardando(true)
+    try {
+      if (modoEdicion && params.torneoId) {
+        await torneosApi.update(params.torneoId, { nombre: nombreTrimado, deporte })
+      } else {
+        if (!params.clubId) {
+          Alert.alert('Error', 'Falta el club para crear el torneo.')
+          return
+        }
+        await torneosApi.create(params.clubId, nombreTrimado, deporte)
+      }
+      router.back()
+    } catch (e) {
+      Alert.alert('Error', e instanceof ApiError ? e.message : 'No se pudo guardar el torneo')
+    } finally {
+      setGuardando(false)
     }
-
-    router.back()
   }
 
   return (
@@ -115,12 +120,13 @@ export default function CrearTorneoScreen() {
 
         {/* Botón guardar */}
         <Pressable
-          style={styles.botonGuardar}
+          style={[styles.botonGuardar, guardando && { opacity: 0.6 }]}
           onPress={guardar}
+          disabled={guardando}
           android_ripple={{ color: '#1B3A6B' }}
         >
           <Text style={styles.botonGuardarTexto}>
-            {modoEdicion ? 'Guardar cambios' : 'Crear torneo'}
+            {guardando ? 'Guardando…' : modoEdicion ? 'Guardar cambios' : 'Crear torneo'}
           </Text>
         </Pressable>
       </ScrollView>

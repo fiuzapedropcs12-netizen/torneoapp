@@ -15,7 +15,7 @@ import {
   View,
 } from 'react-native'
 import { router, useLocalSearchParams, useNavigation } from 'expo-router'
-import { useTorneo } from '@/context/AppContext'
+import { useTorneo } from '@/hooks/useTorneoApi'
 import { useConexion } from '@/hooks/useConexion'
 import TabsInternos, { type TabInterno } from '@/components/TabsInternos'
 import ConexionBanner from '@/components/ConexionBanner'
@@ -23,6 +23,8 @@ import TablaRow from '@/components/TablaRow'
 import PartidoCard from '@/components/PartidoCard'
 import EquipoRow from '@/components/EquipoRow'
 import EmptyState from '@/components/EmptyState'
+import LoadingScreen from '@/components/LoadingScreen'
+import ErrorScreen from '@/components/ErrorScreen'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import FAB from '@/components/FAB'
 import { colors } from '@/theme/colors'
@@ -254,7 +256,7 @@ function ModalResultado({
 
 export default function TorneoDetailScreen() {
   const { torneoId } = useLocalSearchParams<{ torneoId: string }>()
-  const { torneo, dispatch } = useTorneo(torneoId!)
+  const { torneo, cargando, error, dispatch } = useTorneo(torneoId!)
   const conexion = useConexion()
   const navigation = useNavigation()
 
@@ -306,7 +308,11 @@ export default function TorneoDetailScreen() {
     })
   }, [torneo, navigation])
 
-  // Guard: torneo eliminado o id inválido
+  // Mientras se trae el torneo desde la API, mostramos loading (no redirigir todavía)
+  if (cargando && !torneo) return <LoadingScreen type="tabla" />
+  if (error && !torneo) return <ErrorScreen message={error} />
+
+  // Guard: torneo eliminado o id inválido (ya terminó de cargar y no existe)
   if (!torneo) {
     router.replace('/')
     return null
@@ -459,7 +465,10 @@ export default function TorneoDetailScreen() {
                 equipo={item}
                 fixtureGenerado={fixtureGenerado}
                 onVerJugadores={() =>
-                  router.push(`/torneo/${torneo!.id}/equipo/${item.id}`)
+                  router.push({
+                    pathname: '/torneo/[torneoId]/equipo/[equipoId]',
+                    params: { torneoId: torneo!.id, equipoId: item.id, deporte: torneo!.deporte },
+                  })
                 }
                 onRenombrar={() =>
                   setModalRenombrar({ visible: true, equipoId: item.id, nombre: item.nombre })
